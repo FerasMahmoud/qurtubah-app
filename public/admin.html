@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>لوحة إدارة عقود القرطبة</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -736,12 +735,267 @@ async function deleteContract() {
 }
 function downloadPDF() {
   if (!currentContract) return;
-  html2pdf().set({
-    margin: 0, filename: `عقد-${currentContract.contractNumber}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).from(document.getElementById('contractPreview')).save();
+  const html = buildPrintHTML(currentContract);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) { alert('يرجى السماح بفتح نوافذ منبثقة لهذا الموقع لتحميل PDF'); URL.revokeObjectURL(url); return; }
+  win.addEventListener('afterprint', () => { win.close(); URL.revokeObjectURL(url); });
+}
+
+function fmtN(n) { return Number(n||0).toLocaleString('en-US'); }
+function fmtD(d) {
+  if (!d) return '-';
+  const p = d.split('-');
+  if (p.length !== 3) return d;
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${p[2]}/${M[parseInt(p[1])-1]}/${p[0]}`;
+}
+function totalLabelAr(from, to) {
+  if (!from||!to) return 'الإجمالي';
+  const m = Math.round(monthsBetween(from, to));
+  return `الإجمالي (${m} شهر)`;
+}
+function totalLabelEn(from, to) {
+  if (!from||!to) return 'Total';
+  const m = Math.round(monthsBetween(from, to));
+  if (m === 12) return 'Total — 1 Year';
+  if (m === 24) return 'Total — 2 Years';
+  return `Total — ${m} Months`;
+}
+
+function buildPrintHTML(c) {
+  const isSigned = c.status === 'Signed';
+  const signedAtStr = c.signedAt ? new Date(c.signedAt).toLocaleDateString('en-GB') : '';
+  const arNums = ['١','٢','٣','٤','٥','٦','٧','٨','٩','١٠','١١','١٢','١٣'];
+  const arTerms = [
+    'على المستأجر دفع مبلغ <strong>500 ريال</strong> كتأمين مسترد، سيكون عرضة للخصم منه في حال حصول أي تلفيات في محتويات الوحدة من قبل العميل أو مرافقيه.',
+    'على المستأجر مراعاة السلوك والآداب الإسلامية خلال فترة تواجده، وعدم السماح بإقامة أي أشخاص آخرين غير المرافقين، مع الالتزام بالهدوء وعدم إزعاج الآخرين.',
+    'المستأجر مسؤول عن كامل ممتلكات الوحدة، وفي حال التلف يدفع التعويض المناسب، ولا يحق له تحويل العقد لشخص آخر.',
+    'التأكد من إغلاق التكييف والإضاءة والأجهزة الكهربائية عند المغادرة منعًا لحدوث أخطار، وسوف يكون مسؤولًا عنها.',
+    'يتم دفع قيمة المكالمات بعد الانتهاء منها مباشرة، ولا يُستخدم هاتف الوحدة لأغراض مخالفة للآداب.',
+    'تختلف قيم الإيجار خلال أيام العطل والمواسم، ويتم الاتفاق عليها مع الإدارة.',
+    'موعد الخروج في تمام الساعة <strong>2:00 م</strong>، وإذا تأخر عن ذلك تحسب عليه أجرة ليلة كاملة.',
+    'يتم دفع قيم الإيجار مقدمًا.',
+    'في حال تغيب المستأجر بعد انتهاء العقد بثلاثة أيام، يحق للإدارة فتح الوحدة والتصرف فيها ورفع ممتلكاته إلى المستودع دون أي مسؤولية على الإدارة.',
+    'الإدارة غير مسؤولة عن فقدان الأشياء الثمينة الخاصة بالمستأجر داخل الوحدة.',
+    'ليس للمستأجر الحق في استرداد قيمة الإيجار في حال المغادرة قبل انتهاء المدة المتعاقد عليها.',
+    'في حال رغبة المستأجر في التجديد أو الإخلاء، عليه إشعار الإدارة بذلك قبل انتهاء المدة بفترة مناسبة.',
+    'يعتبر العقد لاغيًا في حال الإخلال بأي من الشروط المذكورة، وللإدارة الحق في إلغاء العقد دون إبداء الأسباب.'
+  ];
+  const enTerms = [
+    'The guest must pay <strong>SAR 500</strong> as a refundable security deposit, which may be deducted in case of any damage caused by the guest or their dependents.',
+    'The guest must observe Islamic behavior and etiquette, not allow unauthorized persons to reside in the unit, and maintain calm to avoid disturbing others.',
+    'The guest is responsible for all unit contents. In case of damage, appropriate compensation must be paid. Contract transfer to another person is not allowed.',
+    'Ensure all air conditioning, lighting, and electrical appliances are switched off upon leaving to prevent hazards — the guest shall be held responsible.',
+    'Phone call charges must be paid immediately after use. The unit phone must not be used for purposes that violate behavior and morals.',
+    'Rental rates during holidays and peak seasons differ from regular periods and must be agreed upon with management.',
+    'Check-out time is <strong>2:00 PM</strong>. Any delay will result in being charged for a full additional night.',
+    'Rental fees must be paid in advance.',
+    'If the guest is absent for 3 days after contract expiry, management has the right to open the unit, dispose of it, and move belongings to storage with no liability.',
+    'The hotel management is not responsible for the loss of any valuables belonging to the guest inside the unit.',
+    'The guest does not have the right to a refund of rental fees in the event of departure before the end of the contracted period.',
+    'If the guest wishes to renew or vacate, they must notify management within an appropriate time before the contract ends.',
+    'The contract is void in case of breach of any of the above terms, and management reserves the right to cancel the contract without providing reasons.'
+  ];
+
+  const tenantSection = !isSigned ? '' : `
+    <div class="section-heading"><div class="heading-line left"></div><div class="heading-badge"><svg viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg> بيانات المستأجر &nbsp;|&nbsp; Tenant Information</div><div class="heading-line"></div></div>
+    <div class="guest-grid">
+      <div class="guest-field"><span class="field-label-ar">اسم المستأجر</span><span class="field-label-en">Guest Name</span><div class="field-value">${c.tenantName||'-'}</div></div>
+      <div class="guest-field"><span class="field-label-ar">رقم الجوال</span><span class="field-label-en">Mobile No.</span><div class="field-value phone">${c.tenantPhone||'-'}</div></div>
+      <div class="guest-field"><span class="field-label-ar">الجنسية</span><span class="field-label-en">Nationality</span><div class="field-value">${c.tenantNationality||'-'}</div></div>
+      <div class="guest-field"><span class="field-label-ar">البريد الإلكتروني</span><span class="field-label-en">Email</span><div class="field-value" style="color:#999;direction:ltr;font-size:12px">${c.tenantEmail||'-'}</div></div>
+      <div class="guest-field"><span class="field-label-ar">عدد المرافقين</span><span class="field-label-en">No. of Dependents</span><div class="field-value">${c.dependents??0}</div></div>
+      <div class="guest-field" style="background:#fff;border:1.5px solid #b8963e"><span class="field-label-ar" style="color:#b8963e;font-weight:700">مصدر الحجز</span><span class="field-label-en">Reservation Source</span><div class="field-value">واتساب — WhatsApp</div></div>
+    </div>
+    <div class="id-box">
+      <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2zM9 14H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+      <div><div class="id-label">رقم الهوية / الإقامة &nbsp;|&nbsp; <span style="font-weight:400;color:rgba(212,175,90,.7)">National ID / Iqama Number</span></div><div class="id-value">${c.tenantId||'—'}</div></div>
+    </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>عقد رقم ${c.contractNumber||'-'} — شقق قرطبة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--gold:#b8963e;--gold-light:#d4af5a;--gold-pale:#f9f3e3;--dark:#1a1a2e;--text:#2d2d2d;--muted:#6b6b6b;--border:#e0d4b0;--white:#ffffff;--green:#1a6b3c}
+  body{font-family:'Cairo','Segoe UI',Arial,sans-serif;background:#f0ece0;color:var(--text);font-size:13px;line-height:1.6}
+  .page{width:210mm;min-height:297mm;margin:20px auto;background:var(--white);box-shadow:0 8px 40px rgba(0,0,0,.18);position:relative;overflow:hidden}
+  .top-bar{height:8px;background:linear-gradient(90deg,var(--dark) 0%,var(--gold) 50%,var(--dark) 100%)}
+  .header{background:linear-gradient(135deg,var(--dark) 0%,#16213e 60%,#0f3460 100%);padding:28px 36px 20px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+  .header-logo{text-align:center;flex:0 0 auto}
+  .logo-icon{width:70px;height:70px;border:3px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;background:rgba(184,150,62,.1)}
+  .logo-icon svg{width:36px;height:36px;fill:var(--gold)}
+  .logo-name{color:var(--gold);font-size:16px;font-weight:800;letter-spacing:.5px}
+  .logo-sub{color:rgba(255,255,255,.6);font-size:10px;margin-top:2px}
+  .header-center{flex:1;text-align:center}
+  .contract-badge{display:inline-block;background:linear-gradient(135deg,var(--gold),var(--gold-light));color:var(--dark);font-size:11px;font-weight:700;padding:4px 18px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .contract-title-ar{color:var(--white);font-size:26px;font-weight:800;line-height:1.2}
+  .contract-title-en{color:var(--gold-light);font-size:13px;font-weight:600;margin-top:4px;letter-spacing:2px;text-transform:uppercase}
+  .contract-number{margin-top:10px;display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(184,150,62,.4);color:var(--gold-light);font-size:13px;font-weight:700;padding:5px 20px;border-radius:6px}
+  .status-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;margin-top:6px}
+  .status-signed{background:#d1fae5;color:#065f46}
+  .header-info{text-align:center;flex:0 0 auto}
+  .info-item{color:rgba(255,255,255,.75);font-size:11px;margin-bottom:5px;display:flex;align-items:center;gap:6px;justify-content:flex-start}
+  .info-item span,.info-item a{color:var(--gold-light);font-weight:600;text-decoration:none}
+  .gold-divider{height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+  .body{padding:24px 36px}
+  .section-heading{display:flex;align-items:center;gap:12px;margin-bottom:14px;margin-top:22px}
+  .section-heading:first-child{margin-top:0}
+  .heading-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+  .heading-line.left{background:linear-gradient(270deg,var(--border),transparent)}
+  .heading-badge{background:var(--dark);color:var(--gold);font-size:12px;font-weight:700;padding:5px 18px;border-radius:20px;white-space:nowrap;border:1.5px solid var(--gold);display:flex;align-items:center;gap:8px}
+  .heading-badge svg{width:14px;height:14px;fill:var(--gold)}
+  .res-grid{display:grid;grid-template-columns:repeat(4,1fr);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:var(--white)}
+  .res-cell{padding:12px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .res-cell:nth-child(4n){border-right:none}
+  .res-cell:nth-last-child(-n+4){border-bottom:none}
+  .res-cell.hc{background:var(--dark)}
+  .cell-label-ar{font-size:10px;color:var(--muted);display:block;margin-bottom:2px}
+  .cell-label-en{font-size:9px;color:#999;display:block;margin-bottom:4px;direction:ltr;unicode-bidi:isolate}
+  .res-cell.hc .cell-label-ar{color:var(--gold)}
+  .res-cell.hc .cell-label-en{color:rgba(184,150,62,.7)}
+  .cell-value{font-size:13px;font-weight:700;color:var(--text);text-align:center;display:block;width:100%}
+  .res-cell.hc .cell-value{color:var(--white)}
+  .cell-value.highlight{color:var(--green);font-size:15px}
+  .cell-value.amount{font-size:16px;color:var(--dark);direction:ltr;unicode-bidi:isolate;text-align:center}
+  .cell-value.amount::after{content:' SAR';font-size:10px;color:var(--muted);font-weight:400}
+  .cell-value.amount-green{color:#1a6b3c;font-size:17px}
+  .total-row{display:flex;gap:12px;margin-top:12px}
+  .total-card{flex:1;background:var(--gold-pale);border:1.5px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center}
+  .total-card.main{background:var(--dark);border-color:var(--gold)}
+  .total-label-ar{font-size:10px;color:var(--muted);display:block}
+  .total-label-en{font-size:9px;color:#bbb;display:block}
+  .total-card.main .total-label-ar{color:var(--gold-light)}
+  .total-card.main .total-label-en{color:rgba(184,150,62,.6)}
+  .total-value{font-size:20px;font-weight:800;color:var(--dark);direction:ltr}
+  .total-card.main .total-value{color:var(--gold);font-size:24px}
+  .total-value .cur{font-size:11px;font-weight:400;color:var(--muted);margin-right:4px}
+  .total-card.main .total-value .cur{color:rgba(184,150,62,.7)}
+  .notes-box{background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;font-size:13px;color:#78350f;margin-top:14px}
+  .guest-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .guest-field{background:var(--gold-pale);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+  .field-label-ar{font-size:10px;color:var(--muted);display:block;margin-bottom:2px}
+  .field-label-en{font-size:9px;color:#aaa;display:block;margin-bottom:4px;direction:ltr}
+  .field-value{font-size:13px;font-weight:700;color:var(--dark)}
+  .field-value.phone{direction:ltr;display:block;font-size:14px;color:var(--green);font-weight:700}
+  .id-box{margin-top:12px;background:var(--dark);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:20px;border:1.5px solid var(--gold)}
+  .id-box svg{width:28px;height:28px;fill:var(--gold);flex-shrink:0}
+  .id-label{color:var(--gold);font-size:11px;font-weight:700;margin-bottom:4px}
+  .id-value{color:var(--white);font-size:18px;font-weight:800;letter-spacing:2px;direction:ltr;border-bottom:1px dashed rgba(184,150,62,.4);padding-bottom:2px;min-height:26px}
+  .terms-container{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--border);border-radius:10px;overflow:hidden}
+  .terms-col{padding:16px}
+  .terms-col.arabic{background:var(--gold-pale);border-left:1px solid var(--border);direction:rtl}
+  .terms-col.english{background:var(--white);direction:ltr}
+  .terms-col-header{font-size:11px;font-weight:700;color:var(--gold);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);text-align:center;letter-spacing:1px}
+  .term-item{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+  .term-num{background:var(--dark);color:var(--gold);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+  .term-text{font-size:11px;color:var(--text);line-height:1.6}
+  .signature-section{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px}
+  .sig-block{border:1px solid var(--border);border-radius:10px;padding:16px 20px;background:var(--gold-pale);text-align:center}
+  .sig-title-ar{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:2px}
+  .sig-title-en{font-size:10px;color:var(--muted);margin-bottom:12px;direction:ltr}
+  .sig-img{max-width:100%;max-height:70px;margin:8px 0}
+  .sig-name{font-size:15px;font-weight:800;color:var(--dark);margin-bottom:4px}
+  .sig-date{font-size:10px;color:var(--muted);margin-top:2px}
+  .sig-line{border-top:1.5px solid var(--dark);margin-top:30px;padding-top:6px}
+  .sig-label{font-size:9px;color:var(--muted)}
+  .footer{background:var(--dark);padding:12px 36px;display:flex;justify-content:space-between;align-items:center}
+  .footer-text{color:rgba(255,255,255,.5);font-size:10px}
+  .footer-brand{color:var(--gold);font-size:11px;font-weight:700}
+  .watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:100px;font-weight:900;color:rgba(184,150,62,.04);pointer-events:none;white-space:nowrap;z-index:0}
+  @media print{body{background:white}.page{margin:0;box-shadow:none;width:100%}@page{margin:10mm 0;size:A4}}
+  .terms-container{break-inside:avoid}.section-heading{break-after:avoid}.signature-section{break-inside:avoid}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="watermark">قرطبة</div>
+  <div class="top-bar"></div>
+  <header class="header">
+    <div class="header-logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 3L2 9v12h7v-6h6v6h7V9L12 3zm0 2.5L20 11v9h-3v-6H7v6H4V11l8-5.5z"/></svg></div>
+      <div class="logo-name">شقق قرطبة</div>
+      <div class="logo-sub">Qurtubah Apartments</div>
+    </div>
+    <div class="header-center">
+      <div class="contract-badge">Rental Contract • عقد إيجار</div>
+      <div class="contract-title-ar">عقد إيجار</div>
+      <div class="contract-title-en">Tenancy Agreement</div>
+      <div class="contract-number"># ${c.contractNumber||'-'}</div>
+      ${isSigned ? '<div><span class="status-badge status-signed">موقّع — Signed</span></div>' : ''}
+    </div>
+    <div class="header-info">
+      <div class="info-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(212,175,90,0.8)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg><span>الرياض – القرطبة</span></div>
+      <div class="info-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(212,175,90,0.8)"><path d="M6 2v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-1V2h-2v2H8V2H6zm0 5h12v11H6V7z"/></svg><span>من: <bdi style="direction:ltr;unicode-bidi:isolate">${fmtD(c.fromDate)}</bdi></span></div>
+      <div class="info-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(212,175,90,0.8)"><path d="M6 2v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-1V2h-2v2H8V2H6zm0 5h12v11H6V7z"/></svg><span>إلى: <bdi style="direction:ltr;unicode-bidi:isolate">${fmtD(c.toDate)}</bdi></span></div>
+      <div class="info-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(212,175,90,0.8)"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg><span style="direction:ltr;unicode-bidi:isolate;color:rgba(255,255,255,0.75)">0531182200</span></div>
+      <div class="info-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="rgba(212,175,90,0.8)"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg><span style="color:rgba(255,255,255,0.75)">شارع مليحة</span></div>
+    </div>
+  </header>
+  <div class="gold-divider"></div>
+  <div class="body">
+    <div class="section-heading"><div class="heading-line left"></div><div class="heading-badge"><svg viewBox="0 0 24 24"><path d="M9 5H7c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-2V3H9v2zm0 2h6v2H9V7zm-2 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg> تفاصيل الحجز &nbsp;|&nbsp; Reservation Details</div><div class="heading-line"></div></div>
+    <div class="res-grid">
+      <div class="res-cell hc"><span class="cell-label-en">Rent Type</span><span class="cell-label-ar">نوع الإيجار</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">Unit Type</span><span class="cell-label-ar">نوع الوحدة</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">Monthly Rate</span><span class="cell-label-ar">الإيجار الشهري</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">Security Deposit</span><span class="cell-label-ar">التأمين</span></div>
+      <div class="res-cell"><div class="cell-value highlight">${c.rentType||'-'}</div></div>
+      <div class="res-cell"><div class="cell-value">${c.unitType||'-'}</div></div>
+      <div class="res-cell"><div class="cell-value amount amount-green">${fmtN(c.monthlyRate)}</div></div>
+      <div class="res-cell"><div class="cell-value amount">${fmtN(c.securityDeposit)}</div></div>
+      <div class="res-cell hc"><span class="cell-label-en">From</span><span class="cell-label-ar">من</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">To</span><span class="cell-label-ar">إلى</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">Res. Source</span><span class="cell-label-ar">مصدر الحجز</span></div>
+      <div class="res-cell hc"><span class="cell-label-en">Tax</span><span class="cell-label-ar">الضرائب</span></div>
+      <div class="res-cell"><div class="cell-value" style="font-size:14px"><bdi style="direction:ltr;unicode-bidi:isolate">${fmtD(c.fromDate)}</bdi></div></div>
+      <div class="res-cell"><div class="cell-value" style="font-size:14px"><bdi style="direction:ltr;unicode-bidi:isolate">${fmtD(c.toDate)}</bdi></div></div>
+      <div class="res-cell"><div class="cell-value">واتساب</div><span class="cell-label-en" style="margin-top:2px">WhatsApp</span></div>
+      <div class="res-cell"><div class="cell-value amount">0</div></div>
+    </div>
+    <div class="total-row">
+      <div class="total-card"><span class="total-label-ar">الخصم</span><span class="total-label-en">Discount</span><div class="total-value"><span class="cur">SAR</span>0</div></div>
+      <div class="total-card"><span class="total-label-ar">الصافي</span><span class="total-label-en">Net Amount</span><div class="total-value"><span class="cur">SAR</span>${fmtN(c.totalAmount)}</div></div>
+      <div class="total-card"><span class="total-label-ar">المدفوع</span><span class="total-label-en">Paid</span><div class="total-value"><span class="cur">SAR</span>0</div></div>
+      <div class="total-card main"><span class="total-label-ar">${totalLabelAr(c.fromDate,c.toDate)}</span><span class="total-label-en">${totalLabelEn(c.fromDate,c.toDate)}</span><div class="total-value"><span class="cur">SAR</span>${fmtN(c.totalAmount)}</div></div>
+    </div>
+    ${c.notes ? `<div class="notes-box">📌 ${c.notes}</div>` : ''}
+    ${tenantSection}
+    <div class="section-heading" style="margin-top:22px"><div class="heading-line left"></div><div class="heading-badge"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 17v-2h8v2H8zm0-4v-2h8v2H8zm0-4V7h5v2H8z"/></svg> الشروط والأحكام &nbsp;|&nbsp; Terms & Conditions</div><div class="heading-line"></div></div>
+    <div class="terms-container">
+      <div class="terms-col arabic"><div class="terms-col-header">الشروط والأحكام</div>${arTerms.map((t,i)=>`<div class="term-item"><div class="term-num">${arNums[i]}</div><div class="term-text">${t}</div></div>`).join('')}</div>
+      <div class="terms-col english"><div class="terms-col-header">Terms & Conditions</div>${enTerms.map((t,i)=>`<div class="term-item" style="flex-direction:row-reverse"><div class="term-num">${i+1}</div><div class="term-text">${t}</div></div>`).join('')}</div>
+    </div>
+    <div class="signature-section">
+      <div class="sig-block">
+        <div class="sig-title-ar">توقيع المستأجر</div>
+        <div class="sig-title-en">Tenant Signature</div>
+        ${isSigned && c.signature ? `<img class="sig-img" src="${c.signature}" alt="sig">` : '<div class="sig-line"></div>'}
+        ${isSigned ? `<div class="sig-name">${c.tenantName||''}</div><div class="sig-date" style="direction:ltr">${signedAtStr}</div>` : '<div class="sig-label">توقيع المستأجر</div>'}
+      </div>
+      <div class="sig-block">
+        <div class="sig-title-ar">توقيع الإدارة</div>
+        <div class="sig-title-en">Management Signature</div>
+        <div class="sig-line"></div>
+        <div class="sig-label">ختم وتوقيع الإدارة</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="footer-text">شقق قرطبة — الرياض، شارع مليحة | 0531182200</div>
+    <div class="footer-brand">عقد رقم #${c.contractNumber||'-'}</div>
+    <div class="footer-text" style="direction:ltr">Qurtubah Apartments — Riyadh</div>
+  </div>
+</div>
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),1500))<\/script>
+</body>
+</html>`;
 }
 
 // ── Edit Modal ──
