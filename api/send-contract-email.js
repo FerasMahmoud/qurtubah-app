@@ -1,3 +1,5 @@
+const nodemailer = require('nodemailer');
+
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -5,9 +7,10 @@ module.exports = async (req, res) => {
   const { contract: c } = req.body;
   if (!c || !c.tenantEmail) return res.status(400).json({ error: 'Missing contract or email' });
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn('RESEND_API_KEY not set — skipping email');
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (!gmailUser || !gmailPass) {
+    console.warn('GMAIL_USER or GMAIL_APP_PASSWORD not set — skipping email');
     return res.status(200).json({ success: false, reason: 'email_not_configured' });
   }
 
@@ -152,26 +155,19 @@ module.exports = async (req, res) => {
 </html>`;
 
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: 'شقق قرطبة <contracts@qurtubah-app.vercel.app>',
-        to: [c.tenantEmail],
-        subject: `عقد إيجار رقم ${c.contractNumber || '-'} — شقق قرطبة`,
-        html
-      })
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass }
     });
 
-    const result = await response.json();
-    if (!response.ok) {
-      console.error('Resend error:', result);
-      return res.status(200).json({ success: false, reason: result.message || 'email_failed' });
-    }
-    return res.status(200).json({ success: true, id: result.id });
+    const info = await transporter.sendMail({
+      from: `"شقق قرطبة" <${gmailUser}>`,
+      to: c.tenantEmail,
+      subject: `عقد إيجار رقم ${c.contractNumber || '-'} — شقق قرطبة`,
+      html
+    });
+
+    return res.status(200).json({ success: true, id: info.messageId });
   } catch (err) {
     console.error('Email send error:', err);
     return res.status(200).json({ success: false, reason: err.message });
