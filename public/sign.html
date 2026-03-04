@@ -235,19 +235,36 @@
   .btn-download:hover { background: var(--gold); color: var(--dark); }
 
   @media (max-width: 620px) {
-    .c-header { flex-direction: column; text-align: center; padding: 20px; }
-    .info-item { justify-content: center; }
+    body { font-size: 14px; }
+    .page-wrap { margin: 16px auto 40px; padding: 0 10px; }
+    .c-header { flex-direction: column; text-align: center; padding: 18px 14px; gap: 14px; }
+    .header-info { text-align: center; }
+    .info-item { justify-content: center; font-size: 12px; }
+    .contract-title-ar { font-size: 20px; }
+    .c-body { padding: 14px; }
     .res-grid { grid-template-columns: repeat(2,1fr); }
     .res-cell:nth-child(2n) { border-right: none; }
     .res-cell:nth-child(4n) { border-right: 1px solid var(--border); }
     .res-cell:nth-last-child(-n+2) { border-bottom: none; }
     .res-cell:nth-last-child(-n+4) { border-bottom: 1px solid var(--border); }
-    .total-row { flex-wrap: wrap; }
-    .total-card { min-width: calc(50% - 6px); }
+    .total-row { flex-wrap: wrap; gap: 8px; }
+    .total-card { min-width: calc(50% - 6px); padding: 10px 8px; }
+    .total-label-ar { font-size: 11px; }
+    .total-label-en { font-size: 9px; }
+    .total-value { font-size: 16px; }
     .terms-container { grid-template-columns: 1fr; }
     .terms-col.arabic { border-left: none; border-bottom: 1px solid var(--border); }
     .sig-section, .form-row, .guest-grid { grid-template-columns: 1fr; }
-    .c-body { padding: 16px; }
+    .form-card { padding: 18px 16px; }
+    .sig-card { padding: 18px 16px; }
+    .form-group input { min-height: 44px; font-size: 15px; padding: 10px 12px; }
+    .btn-submit { font-size: 17px; padding: 16px; min-height: 54px; }
+    .btn-download { font-size: 16px; padding: 16px; min-height: 54px; margin-top: 12px; }
+    .btn-clear { min-height: 40px; font-size: 13px; padding: 8px 20px; }
+    .sig-hint { font-size: 13px; }
+    #sigCanvas { height: 140px; }
+    .state-card { margin: 30px auto; padding: 32px 20px; }
+    .footer-text { font-size: 11px; }
   }
 </style>
 </head>
@@ -276,8 +293,8 @@
     <div class="success-title">تم توقيع هذا العقد</div>
     <div class="success-msg">يمكنك تحميل نسخة العقد الموقّع أدناه</div>
   </div>
-  <div id="signedView"></div>
   <button class="btn-download" onclick="dlPDF()">⬇ طباعة / تحميل العقد PDF</button>
+  <div id="signedView"></div>
 </div>
 
 <div id="statePending" style="display:none" class="page-wrap">
@@ -319,10 +336,10 @@
   <div class="success-banner">
     <div class="success-icon">🎉</div>
     <div class="success-title">تم توقيع العقد بنجاح!</div>
-    <div class="success-msg">شكراً لك. تم حفظ توقيعك وبيانات العقد بنجاح.</div>
+    <div class="success-msg" id="successMsg">شكراً لك. تم حفظ توقيعك وبيانات العقد بنجاح.</div>
   </div>
-  <div id="successView"></div>
   <button class="btn-download" onclick="dlPDF()">⬇ طباعة / تحميل العقد PDF</button>
+  <div id="successView"></div>
 </div>
 
 <script>
@@ -700,6 +717,17 @@ async function submitContract() {
     document.getElementById('successView').innerHTML = buildFullContract(data.contract, true);
     showState('stateSuccess');
     window.scrollTo(0,0);
+    // Send email in background (fire-and-forget)
+    fetch('/api/send-contract-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contract: data.contract })
+    }).then(r => r.json()).then(d => {
+      if (d.success) {
+        const msg = document.getElementById('successMsg');
+        if (msg) msg.textContent = `شكراً لك. تم حفظ توقيعك وإرسال نسخة العقد إلى بريدك الإلكتروني.`;
+      }
+    }).catch(() => {});
   } catch(err) {
     btn.textContent = '✅ توقيع العقد وإرساله'; btn.disabled = false;
     alert('خطأ: ' + err.message);
