@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة إدارة عقود القرطبة</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0a1628; --navy2: #132040; --gold: #c9a84c; --gold2: #e8c97a;
+    --gray: #f4f6fb; --text: #1a2540; --muted: #6b7a99; --border: #dde3f0;
+    --danger: #ef4444;
+  }
+  body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: var(--gray); color: var(--text); min-height: 100vh; }
+
+  /* Login */
+  #loginScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%); }
+  .login-card { background: #fff; border-radius: 16px; padding: 48px 40px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.3); text-align: center; }
+  .login-logo { font-size: 42px; margin-bottom: 8px; }
+  .login-title { font-size: 22px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .login-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .login-error { color: var(--danger); font-size: 13px; margin-top: 8px; display: none; }
+
+  /* Forms */
+  .form-group { margin-bottom: 14px; text-align: right; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; color: var(--text); font-family: inherit;
+    direction: rtl; transition: border-color .2s; background: #fff;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--gold); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Custom Date Picker — 3 dropdowns, no popup */
+  .date-picker-wrap { display: flex; gap: 6px; }
+  .date-picker-wrap select {
+    flex: 1; padding: 10px 8px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 13px; color: var(--text); font-family: inherit;
+    background: #fff; cursor: pointer; direction: rtl;
+    transition: border-color .2s; appearance: auto;
+  }
+  .date-picker-wrap select:focus { outline: none; border-color: var(--gold); }
+  .date-picker-wrap select.day-sel { max-width: 72px; }
+  .date-picker-wrap select.month-sel { flex: 2; }
+  .date-picker-wrap select.year-sel { max-width: 90px; }
+
+  /* Duration picker */
+  .duration-section { margin-bottom: 14px; background: #f8f9fd; border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .duration-label { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 10px; display: block; }
+  .duration-group { margin-bottom: 8px; }
+  .duration-group:last-child { margin-bottom: 0; }
+  .duration-group-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+  .duration-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+  .dur-btn {
+    padding: 5px 11px; border: 1.5px solid var(--border); border-radius: 16px;
+    font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer;
+    background: #fff; font-family: inherit; transition: all .15s;
+  }
+  .dur-btn:hover { border-color: var(--gold); color: var(--navy); background: #fffbf0; }
+  .dur-btn.active { background: var(--navy); color: var(--gold2); border-color: var(--navy); }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit; }
+  .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--navy); width: 100%; }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,168,76,.4); }
+  .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+  .btn-logout { background: transparent; color: rgba(255,255,255,.6); border: 1px solid rgba(255,255,255,.2); padding: 7px 14px; font-size: 13px; }
+  .btn-create { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--navy); padding: 8px 18px; font-size: 13px; }
+  .btn-copy { background: var(--navy); color: #fff; padding: 8px 16px; font-size: 13px; width: 100%; }
+  .btn-back { background: rgba(255,255,255,.15); color: #fff; padding: 8px 16px; font-size: 13px; }
+  .btn-pdf { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--navy); padding: 8px 16px; font-size: 13px; }
+  .btn-edit { background: rgba(255,255,255,.15); color: #fff; padding: 8px 16px; font-size: 13px; }
+  .btn-edit:hover { background: rgba(201,168,76,.25); color: var(--gold2); }
+  .btn-link-copy { background: rgba(255,255,255,.15); color: #fff; padding: 8px 16px; font-size: 13px; }
+  .btn-delete { background: rgba(239,68,68,.2); color: #fca5a5; padding: 8px 16px; font-size: 13px; }
+  .btn-delete:hover { background: rgba(239,68,68,.4); }
+  .btn-save { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--navy); }
+  .btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,168,76,.4); }
+  .btn-save:disabled { opacity: .6; cursor: not-allowed; }
+  .btn-cancel { background: var(--gray); color: var(--muted); border: 1px solid var(--border); }
+
+  /* Navbar */
+  .navbar { background: var(--navy); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
+  .navbar-brand { display: flex; align-items: center; gap: 10px; }
+  .navbar-logo { font-size: 28px; }
+  .navbar-title { color: var(--gold); font-size: 18px; font-weight: 700; }
+  .navbar-subtitle { color: rgba(255,255,255,.5); font-size: 12px; }
+  .navbar-actions { display: flex; align-items: center; gap: 12px; }
+
+  /* Main */
+  .main { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
+  .stats-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; align-items: center; gap: 16px; }
+  .stat-icon { font-size: 32px; }
+  .stat-num { font-size: 28px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .stat-label { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .section-title { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+  .contracts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 16px; }
+  .contract-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor: pointer; border: 2px solid transparent; transition: all .2s; }
+  .contract-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .card-num { font-size: 15px; font-weight: 700; color: var(--navy); }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-signed { background: #d1fae5; color: #065f46; }
+  .card-tenant { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+  .card-tenant strong { color: var(--text); }
+  .card-meta { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: flex-start; justify-content: center; z-index: 500; padding: 24px 16px 40px; overflow-y: auto; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 600px; box-shadow: 0 24px 80px rgba(0,0,0,.3); margin: auto; }
+  .modal-header { padding: 22px 26px 0; display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 17px; font-weight: 700; color: var(--navy); }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .modal-close:hover { background: var(--gray); }
+  .modal-body { padding: 18px 26px 26px; }
+  .modal-footer { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-footer .btn { flex: 1; }
+
+  .auto-num-badge { background: linear-gradient(135deg, var(--navy), var(--navy2)); color: var(--gold); border-radius: 8px; padding: 10px 14px; font-size: 15px; font-weight: 700; text-align: center; letter-spacing: 1px; margin-bottom: 16px; }
+  .link-box { background: var(--gray); border-radius: 10px; padding: 16px; margin-top: 16px; display: none; }
+  .link-box.active { display: block; }
+  .link-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+  .link-url { font-size: 13px; color: var(--navy2); word-break: break-all; padding: 8px; background: #fff; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 8px; }
+
+  /* Detail View */
+  #detailView { position: fixed; inset: 0; background: #fff; z-index: 200; overflow-y: auto; display: none; }
+  #detailView.active { display: block; }
+  .detail-header { background: var(--navy); padding: 16px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 10; }
+  .detail-header-title { color: var(--gold); font-size: 17px; font-weight: 700; flex: 1; }
+  .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .detail-body { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  /* PDF template */
+  .contract-pdf-wrap { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; color: #1a1a1a; }
+  .pdf-header { background: var(--navy); padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .pdf-logo-area { display: flex; align-items: center; gap: 12px; }
+  .pdf-logo-icon { font-size: 40px; }
+  .pdf-co-name { font-size: 20px; font-weight: 700; color: var(--gold); }
+  .pdf-co-sub { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 2px; }
+  .pdf-doc-name { font-size: 18px; font-weight: 700; color: var(--gold); text-align: left; }
+  .pdf-doc-num { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 4px; text-align: left; }
+  .pdf-body { padding: 28px 32px; }
+  .pdf-section { margin-bottom: 24px; }
+  .pdf-section-title { font-size: 14px; font-weight: 700; color: var(--navy); border-right: 4px solid var(--gold); padding-right: 10px; margin-bottom: 14px; }
+  .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .pdf-field { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
+  .pdf-field-label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .pdf-field-value { font-size: 14px; color: var(--text); font-weight: 500; margin-top: 2px; }
+  .pdf-notes { background: #fffbf0; border: 1px solid #fde68a; border-radius: 8px; padding: 14px; font-size: 13px; color: #78350f; margin-top: 12px; }
+  .pdf-sig-section { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .pdf-sig-box { border: 1.5px solid var(--border); border-radius: 8px; padding: 16px; min-height: 100px; }
+  .pdf-sig-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .pdf-sig-img { max-width: 100%; max-height: 80px; }
+  .pdf-sig-name { font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .pdf-sig-date { font-size: 11px; color: var(--muted); }
+  .pdf-footer { background: var(--navy); color: rgba(255,255,255,.5); padding: 14px 32px; font-size: 11px; text-align: center; }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--navy); color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; z-index: 9999; transition: transform .3s; pointer-events: none; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 600px) {
+    .stats-bar { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .pdf-grid, .pdf-sig-section { grid-template-columns: 1fr; }
+    .navbar { padding: 0 16px; }
+    .modal-body { padding: 14px 14px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- Login -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🏙️</div>
+    <div class="login-title">مجمع القرطبة</div>
+    <div class="login-subtitle">لوحة إدارة العقود</div>
+    <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="loginEmail" value="feras299@gmail.com"></div>
+    <div class="form-group"><label>كلمة المرور</label><input type="password" id="loginPassword"></div>
+    <button class="btn btn-primary" onclick="doLogin()">دخول</button>
+    <div class="login-error" id="loginError">بيانات الدخول غير صحيحة</div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <span class="navbar-logo">🏙️</span>
+      <div><div class="navbar-title">مجمع القرطبة</div><div class="navbar-subtitle">لوحة إدارة العقود</div></div>
+    </div>
+    <div class="navbar-actions">
+      <button class="btn btn-create" onclick="openCreateModal()">+ عقد جديد</button>
+      <button class="btn btn-logout" onclick="doLogout()">خروج</button>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-icon">📋</div><div><div class="stat-num" id="statTotal">-</div><div class="stat-label">إجمالي العقود</div></div></div>
+      <div class="stat-card"><div class="stat-icon">⏳</div><div><div class="stat-num" id="statPending" style="color:#f59e0b">-</div><div class="stat-label">بانتظار التوقيع</div></div></div>
+      <div class="stat-card"><div class="stat-icon">✅</div><div><div class="stat-num" id="statSigned" style="color:#10b981">-</div><div class="stat-label">موقّعة</div></div></div>
+    </div>
+    <div class="section-title">العقود</div>
+    <div id="contractsList"><div class="loading"><div class="spinner"></div>جاري التحميل...</div></div>
+  </div>
+</div>
+
+<!-- ══ Create Modal ══ -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">إنشاء عقد جديد</div>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="auto-num-badge">🔢 رقم العقد: <span id="autoNumDisplay">...</span></div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>نوع الوحدة *</label>
+          <input type="text" id="f_unitType" placeholder="مثال: شقة - الدور الثاني">
+        </div>
+        <div class="form-group">
+          <label>نوع الإيجار</label>
+          <select id="f_rentType">
+            <option value="شهري">شهري</option>
+            <option value="ربع سنوي">ربع سنوي</option>
+            <option value="نصف سنوي">نصف سنوي</option>
+            <option value="سنوي">سنوي</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>الإيجار الشهري (ريال) *</label>
+          <input type="number" id="f_monthlyRate" placeholder="0" oninput="calcCreateTotal()">
+        </div>
+        <div class="form-group">
+          <label>مبلغ التأمين (ريال)</label>
+          <input type="number" id="f_securityDeposit" placeholder="0">
+        </div>
+      </div>
+
+      <!-- Duration quick-pick -->
+      <div class="duration-section">
+        <span class="duration-label">⏱ اختر مدة العقد (يحسب تاريخ الانتهاء تلقائياً)</span>
+        <div class="duration-group">
+          <div class="duration-group-title">أسابيع</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('c',{weeks:1},this)">أسبوع</button>
+            <button class="dur-btn" onclick="selectDur('c',{weeks:2},this)">أسبوعان</button>
+            <button class="dur-btn" onclick="selectDur('c',{weeks:3},this)">3 أسابيع</button>
+          </div>
+        </div>
+        <div class="duration-group">
+          <div class="duration-group-title">أشهر</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('c',{months:1},this)">شهر</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:2},this)">2</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:3},this)">3</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:4},this)">4</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:5},this)">5</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:6},this)">6</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:7},this)">7</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:8},this)">8</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:9},this)">9</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:10},this)">10</button>
+            <button class="dur-btn" onclick="selectDur('c',{months:11},this)">11</button>
+          </div>
+        </div>
+        <div class="duration-group">
+          <div class="duration-group-title">سنوات</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('c',{years:1},this)">سنة</button>
+            <button class="dur-btn" onclick="selectDur('c',{years:2},this)">سنتان</button>
+            <button class="dur-btn" onclick="selectDur('c',{years:3},this)">3 سنوات</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>من تاريخ *</label>
+          <div class="date-picker-wrap" id="dp_f_from"></div>
+        </div>
+        <div class="form-group">
+          <label>إلى تاريخ *</label>
+          <div class="date-picker-wrap" id="dp_f_to"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>المبلغ الإجمالي (ريال)</label>
+        <input type="number" id="f_totalAmount" placeholder="يحسب تلقائياً">
+      </div>
+      <div class="form-group">
+        <label>ملاحظات</label>
+        <textarea id="f_notes" rows="2" placeholder="أي ملاحظات إضافية..."></textarea>
+      </div>
+
+      <button class="btn btn-primary" id="createBtn" onclick="createContract()">إنشاء العقد وإنشاء رابط التوقيع</button>
+      <div class="link-box" id="linkBox">
+        <div class="link-label">🔗 رابط التوقيع للمستأجر</div>
+        <div class="link-url" id="signingUrl"></div>
+        <button class="btn btn-copy" onclick="copyLink()">نسخ الرابط</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Edit Modal ══ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ تعديل العقد</div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>رقم العقد</label><input type="text" id="e_contractNumber"></div>
+        <div class="form-group"><label>نوع الوحدة</label><input type="text" id="e_unitType"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>الإيجار الشهري (ريال)</label><input type="number" id="e_monthlyRate" oninput="calcEditTotal()"></div>
+        <div class="form-group"><label>مبلغ التأمين (ريال)</label><input type="number" id="e_securityDeposit"></div>
+      </div>
+
+      <!-- Edit duration -->
+      <div class="duration-section">
+        <span class="duration-label">⏱ تغيير مدة العقد</span>
+        <div class="duration-group">
+          <div class="duration-group-title">أسابيع</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('e',{weeks:1},this)">أسبوع</button>
+            <button class="dur-btn" onclick="selectDur('e',{weeks:2},this)">أسبوعان</button>
+            <button class="dur-btn" onclick="selectDur('e',{weeks:3},this)">3 أسابيع</button>
+          </div>
+        </div>
+        <div class="duration-group">
+          <div class="duration-group-title">أشهر</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('e',{months:1},this)">شهر</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:2},this)">2</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:3},this)">3</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:4},this)">4</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:5},this)">5</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:6},this)">6</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:7},this)">7</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:8},this)">8</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:9},this)">9</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:10},this)">10</button>
+            <button class="dur-btn" onclick="selectDur('e',{months:11},this)">11</button>
+          </div>
+        </div>
+        <div class="duration-group">
+          <div class="duration-group-title">سنوات</div>
+          <div class="duration-btns">
+            <button class="dur-btn" onclick="selectDur('e',{years:1},this)">سنة</button>
+            <button class="dur-btn" onclick="selectDur('e',{years:2},this)">سنتان</button>
+            <button class="dur-btn" onclick="selectDur('e',{years:3},this)">3 سنوات</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label>من تاريخ</label><div class="date-picker-wrap" id="dp_e_from"></div></div>
+        <div class="form-group"><label>إلى تاريخ</label><div class="date-picker-wrap" id="dp_e_to"></div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>نوع الإيجار</label>
+          <select id="e_rentType">
+            <option value="شهري">شهري</option>
+            <option value="ربع سنوي">ربع سنوي</option>
+            <option value="نصف سنوي">نصف سنوي</option>
+            <option value="سنوي">سنوي</option>
+          </select>
+        </div>
+        <div class="form-group"><label>المبلغ الإجمالي (ريال)</label><input type="number" id="e_totalAmount"></div>
+      </div>
+      <div class="form-group"><label>ملاحظات</label><textarea id="e_notes" rows="2"></textarea></div>
+
+      <div id="editTenantSection" style="display:none">
+        <div style="font-size:13px;font-weight:700;color:var(--navy);border-top:2px solid var(--border);padding-top:14px;margin-bottom:14px;">بيانات المستأجر</div>
+        <div class="form-row">
+          <div class="form-group"><label>الاسم الكامل</label><input type="text" id="e_tenantName"></div>
+          <div class="form-group"><label>رقم الجوال</label><input type="text" id="e_tenantPhone"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>الجنسية</label><input type="text" id="e_tenantNationality"></div>
+          <div class="form-group"><label>رقم الهوية / الإقامة</label><input type="text" id="e_tenantId"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="e_tenantEmail" style="direction:ltr"></div>
+          <div class="form-group"><label>عدد التابعين</label><input type="number" id="e_dependents" min="0"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-cancel" onclick="closeEditModal()">إلغاء</button>
+        <button class="btn btn-save" id="saveEditBtn" onclick="saveEdit()">💾 حفظ التعديلات</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Detail View ══ -->
+<div id="detailView">
+  <div class="detail-header">
+    <button class="btn btn-back" onclick="closeDetail()">→ رجوع</button>
+    <div class="detail-header-title" id="detailTitle">تفاصيل العقد</div>
+    <div class="detail-actions">
+      <button class="btn btn-edit" onclick="openEditModal()">✏️ تعديل</button>
+      <button class="btn btn-link-copy" onclick="copyDetailLink()">🔗 رابط التوقيع</button>
+      <button class="btn btn-pdf" onclick="downloadPDF()">⬇ PDF</button>
+      <button class="btn btn-delete" onclick="deleteContract()">🗑 حذف</button>
+    </div>
+  </div>
+  <div class="detail-body"><div id="contractPreview"></div></div>
+</div>
+
+<script>
+const ADMIN_PASSWORD = 'Feras465@';
+const ADMIN_EMAIL    = 'feras299@gmail.com';
+const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+let contracts = [];
+let currentContract = null;
+let createdSigningUrl = '';
+let autoContractNumber = '';
+const activeDur = { c: null, e: null };
+
+// ── Custom Date Picker (no native popup) ──
+function buildDatePicker(containerId, onChange) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+
+  const now = new Date();
+  const baseYear = now.getFullYear() - 1;
+
+  // Day select
+  const dayEl = document.createElement('select');
+  dayEl.className = 'day-sel';
+  dayEl.innerHTML = '<option value="">يوم</option>' +
+    Array.from({length:31},(_,i)=>`<option value="${String(i+1).padStart(2,'0')}">${i+1}</option>`).join('');
+
+  // Month select
+  const monEl = document.createElement('select');
+  monEl.className = 'month-sel';
+  monEl.innerHTML = '<option value="">الشهر</option>' +
+    MONTHS_AR.map((m,i)=>`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`).join('');
+
+  // Year select
+  const yrEl = document.createElement('select');
+  yrEl.className = 'year-sel';
+  yrEl.innerHTML = '<option value="">السنة</option>' +
+    Array.from({length:8},(_,i)=>`<option value="${baseYear+i}">${baseYear+i}</option>`).join('');
+
+  wrap.appendChild(dayEl);
+  wrap.appendChild(monEl);
+  wrap.appendChild(yrEl);
+
+  function notify() {
+    const d = dayEl.value, m = monEl.value, y = yrEl.value;
+    if (d && m && y) onChange(`${y}-${m}-${d}`);
+    else onChange('');
+  }
+
+  dayEl.addEventListener('change', notify);
+  monEl.addEventListener('change', notify);
+  yrEl.addEventListener('change', notify);
+}
+
+function setDatePicker(containerId, dateStr) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap || !dateStr) return;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return;
+  const [y, m, d] = parts;
+  const sels = wrap.querySelectorAll('select');
+  if (sels[0]) sels[0].value = d;
+  if (sels[1]) sels[1].value = m;
+  if (sels[2]) sels[2].value = y;
+}
+
+function getDatePicker(containerId) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return '';
+  const sels = wrap.querySelectorAll('select');
+  const d = sels[0]?.value, m = sels[1]?.value, y = sels[2]?.value;
+  return (d && m && y) ? `${y}-${m}-${d}` : '';
+}
+
+function clearDatePicker(containerId) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll('select').forEach(s => s.value = '');
+}
+
+// ── Duration ──
+function addDuration(dateStr, dur) {
+  const d = new Date(dateStr);
+  if (dur.weeks)  d.setDate(d.getDate() + dur.weeks * 7);
+  if (dur.months) d.setMonth(d.getMonth() + dur.months);
+  if (dur.years)  d.setFullYear(d.getFullYear() + dur.years);
+  return d.toISOString().split('T')[0];
+}
+
+function selectDur(prefix, dur, btn) {
+  activeDur[prefix] = dur;
+  // Clear all dur-btn active in that modal
+  const modalId = prefix === 'c' ? 'createModal' : 'editModal';
+  document.querySelectorAll(`#${modalId} .dur-btn`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Apply to toDate if fromDate set
+  const fromVal = getDatePicker(`dp_${prefix}_from`);
+  if (fromVal) {
+    const toVal = addDuration(fromVal, dur);
+    setDatePicker(`dp_${prefix}_to`, toVal);
+    if (prefix === 'c') calcCreateTotal();
+    else calcEditTotal();
+  }
+}
+
+// ── Totals — use calendar months for accurate results ──
+function monthsBetween(from, to) {
+  const d1 = new Date(from), d2 = new Date(to);
+  const wholeMonths = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+  const extraDays   = d2.getDate() - d1.getDate();
+  return wholeMonths + extraDays / 30;
+}
+function calcCreateTotal() {
+  const rate = parseFloat(document.getElementById('f_monthlyRate').value) || 0;
+  const from = getDatePicker('dp_f_from');
+  const to   = getDatePicker('dp_f_to');
+  if (rate && from && to) {
+    const months = monthsBetween(from, to);
+    if (months > 0) document.getElementById('f_totalAmount').value = Math.round(months * rate);
+  }
+}
+function calcEditTotal() {
+  const rate = parseFloat(document.getElementById('e_monthlyRate').value) || 0;
+  const from = getDatePicker('dp_e_from');
+  const to   = getDatePicker('dp_e_to');
+  if (rate && from && to) {
+    const months = monthsBetween(from, to);
+    if (months > 0) document.getElementById('e_totalAmount').value = Math.round(months * rate);
+  }
+}
+
+// ── Auth ──
+function doLogin() {
+  const email = document.getElementById('loginEmail').value;
+  const pw    = document.getElementById('loginPassword').value;
+  if (email === ADMIN_EMAIL && pw === ADMIN_PASSWORD) {
+    sessionStorage.setItem('auth', pw);
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadContracts();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+function doLogout() { sessionStorage.removeItem('auth'); location.reload(); }
+function getToken() { return sessionStorage.getItem('auth') || ''; }
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Load contracts ──
+async function loadContracts() {
+  try {
+    const res  = await fetch('/api/get-contracts', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    contracts = data.contracts;
+    renderContracts();
+  } catch (err) {
+    document.getElementById('contractsList').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>خطأ في تحميل البيانات: ${err.message}</p></div>`;
+  }
+}
+
+function renderContracts() {
+  const total   = contracts.length;
+  const pending = contracts.filter(c => c.status === 'Pending').length;
+  const signed  = contracts.filter(c => c.status === 'Signed').length;
+  document.getElementById('statTotal').textContent   = total;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statSigned').textContent  = signed;
+  if (!total) {
+    document.getElementById('contractsList').innerHTML =
+      `<div class="empty-state"><div class="icon">📋</div><p>لا توجد عقود بعد. أنشئ أول عقد!</p></div>`;
+    return;
+  }
+  document.getElementById('contractsList').innerHTML =
+    `<div class="contracts-grid">${contracts.map(c => `
+      <div class="contract-card" onclick="openDetail('${c.id}')">
+        <div class="card-header">
+          <div class="card-num">عقد رقم ${c.contractNumber||'-'}</div>
+          <span class="badge ${c.status==='Signed'?'badge-signed':'badge-pending'}">${c.status==='Signed'?'موقّع':'بانتظار التوقيع'}</span>
+        </div>
+        <div class="card-tenant">${c.status==='Signed'
+          ?`المستأجر: <strong>${c.tenantName||'-'}</strong>`
+          :`<span style="color:var(--muted)">لم يتم التوقيع بعد</span>`}</div>
+        <div class="card-meta"><span>🏠 ${c.unitType||'-'}</span><span>💰 ${Number(c.totalAmount||0).toLocaleString('ar-SA')} ر.س</span></div>
+        <div class="card-meta" style="margin-top:6px"><span>📅 ${c.fromDate||'-'} → ${c.toDate||'-'}</span></div>
+      </div>`).join('')}</div>`;
+}
+
+// ── Auto number ──
+function generateContractNumber(list) {
+  const year = new Date().getFullYear();
+  const nums = list
+    .map(c => c.contractNumber || '')
+    .filter(n => n.startsWith(`Q-${year}-`))
+    .map(n => parseInt(n.split('-')[2]) || 0);
+  return `Q-${year}-${String(nums.length ? Math.max(...nums)+1 : 1).padStart(3,'0')}`;
+}
+
+// ── Create Modal ──
+function openCreateModal() {
+  autoContractNumber = generateContractNumber(contracts);
+  document.getElementById('autoNumDisplay').textContent = autoContractNumber;
+  document.getElementById('linkBox').classList.remove('active');
+  document.getElementById('createBtn').textContent = 'إنشاء العقد وإنشاء رابط التوقيع';
+  document.getElementById('createBtn').disabled = false;
+  activeDur['c'] = null;
+  document.querySelectorAll('#createModal .dur-btn').forEach(b => b.classList.remove('active'));
+  ['f_unitType','f_monthlyRate','f_securityDeposit','f_totalAmount','f_notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_rentType').value = 'شهري';
+  clearDatePicker('dp_f_from');
+  clearDatePicker('dp_f_to');
+  document.getElementById('createModal').classList.add('active');
+}
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('active');
+  if (document.getElementById('linkBox').classList.contains('active')) loadContracts();
+}
+
+async function createContract() {
+  const btn = document.getElementById('createBtn');
+  const unitType    = document.getElementById('f_unitType').value.trim();
+  const monthlyRate = document.getElementById('f_monthlyRate').value;
+  const fromDate    = getDatePicker('dp_f_from');
+  const toDate      = getDatePicker('dp_f_to');
+
+  if (!unitType || !monthlyRate || !fromDate || !toDate) {
+    alert('يرجى ملء الحقول المطلوبة: نوع الوحدة، الإيجار، تاريخ البداية والانتهاء');
+    return;
+  }
+
+  btn.textContent = 'جاري الإنشاء...';
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch('/api/create-contract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({
+        contractNumber:  autoContractNumber,
+        unitType, fromDate, toDate,
+        monthlyRate:     Number(monthlyRate),
+        securityDeposit: Number(document.getElementById('f_securityDeposit').value) || 0,
+        rentType:        document.getElementById('f_rentType').value,
+        totalAmount:     Number(document.getElementById('f_totalAmount').value) || 0,
+        notes:           document.getElementById('f_notes').value
+      })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    createdSigningUrl = data.signingUrl;
+    document.getElementById('signingUrl').textContent = data.signingUrl;
+    document.getElementById('linkBox').classList.add('active');
+    btn.textContent = '✓ تم الإنشاء بنجاح';
+    showToast('✓ تم إنشاء العقد ' + autoContractNumber);
+  } catch (err) {
+    btn.textContent = 'إنشاء العقد وإنشاء رابط التوقيع';
+    btn.disabled = false;
+    alert('خطأ: ' + err.message);
+  }
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(createdSigningUrl).then(() => showToast('✓ تم نسخ الرابط'));
+}
+
+// ── Detail ──
+function openDetail(id) {
+  currentContract = contracts.find(c => c.id === id);
+  if (!currentContract) return;
+  document.getElementById('detailTitle').textContent = `عقد رقم ${currentContract.contractNumber}`;
+  document.getElementById('contractPreview').innerHTML = buildContractHTML(currentContract);
+  document.getElementById('detailView').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeDetail() {
+  document.getElementById('detailView').classList.remove('active');
+  document.body.style.overflow = '';
+  currentContract = null;
+}
+function copyDetailLink() {
+  if (!currentContract) return;
+  navigator.clipboard.writeText(`${location.origin}/sign?token=${currentContract.token}`)
+    .then(() => showToast('✓ تم نسخ رابط التوقيع'));
+}
+async function deleteContract() {
+  if (!currentContract) return;
+  if (!confirm(`هل أنت متأكد من حذف عقد رقم ${currentContract.contractNumber}؟`)) return;
+  try {
+    const res  = await fetch(`/api/delete-contract?id=${currentContract.id}`, {
+      method: 'DELETE', headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    closeDetail(); loadContracts(); showToast('🗑 تم حذف العقد');
+  } catch (err) { alert('خطأ: ' + err.message); }
+}
+function downloadPDF() {
+  if (!currentContract) return;
+  html2pdf().set({
+    margin: 0, filename: `عقد-${currentContract.contractNumber}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(document.getElementById('contractPreview')).save();
+}
+
+// ── Edit Modal ──
+function openEditModal() {
+  if (!currentContract) return;
+  const c = currentContract;
+  document.getElementById('e_contractNumber').value  = c.contractNumber || '';
+  document.getElementById('e_unitType').value        = c.unitType || '';
+  document.getElementById('e_monthlyRate').value     = c.monthlyRate || '';
+  document.getElementById('e_securityDeposit').value = c.securityDeposit || '';
+  document.getElementById('e_rentType').value        = c.rentType || 'شهري';
+  document.getElementById('e_totalAmount').value     = c.totalAmount || '';
+  document.getElementById('e_notes').value           = c.notes || '';
+  setDatePicker('dp_e_from', c.fromDate || '');
+  setDatePicker('dp_e_to',   c.toDate   || '');
+  activeDur['e'] = null;
+  document.querySelectorAll('#editModal .dur-btn').forEach(b => b.classList.remove('active'));
+
+  const isSigned = c.status === 'Signed';
+  document.getElementById('editTenantSection').style.display = isSigned ? 'block' : 'none';
+  if (isSigned) {
+    document.getElementById('e_tenantName').value        = c.tenantName || '';
+    document.getElementById('e_tenantPhone').value       = c.tenantPhone || '';
+    document.getElementById('e_tenantNationality').value = c.tenantNationality || '';
+    document.getElementById('e_tenantId').value          = c.tenantId || '';
+    document.getElementById('e_tenantEmail').value       = c.tenantEmail || '';
+    document.getElementById('e_dependents').value        = c.dependents ?? 0;
+  }
+  document.getElementById('saveEditBtn').textContent = '💾 حفظ التعديلات';
+  document.getElementById('saveEditBtn').disabled = false;
+  document.getElementById('editModal').classList.add('active');
+}
+function closeEditModal() { document.getElementById('editModal').classList.remove('active'); }
+
+async function saveEdit() {
+  const btn = document.getElementById('saveEditBtn');
+  btn.textContent = 'جاري الحفظ...';
+  btn.disabled = true;
+  const isSigned = currentContract.status === 'Signed';
+  const body = {
+    id:              currentContract.id,
+    contractNumber:  document.getElementById('e_contractNumber').value.trim(),
+    unitType:        document.getElementById('e_unitType').value.trim(),
+    monthlyRate:     Number(document.getElementById('e_monthlyRate').value) || 0,
+    securityDeposit: Number(document.getElementById('e_securityDeposit').value) || 0,
+    fromDate:        getDatePicker('dp_e_from'),
+    toDate:          getDatePicker('dp_e_to'),
+    rentType:        document.getElementById('e_rentType').value,
+    totalAmount:     Number(document.getElementById('e_totalAmount').value) || 0,
+    notes:           document.getElementById('e_notes').value
+  };
+  if (isSigned) {
+    body.tenantName        = document.getElementById('e_tenantName').value.trim();
+    body.tenantPhone       = document.getElementById('e_tenantPhone').value.trim();
+    body.tenantNationality = document.getElementById('e_tenantNationality').value.trim();
+    body.tenantId          = document.getElementById('e_tenantId').value.trim();
+    body.tenantEmail       = document.getElementById('e_tenantEmail').value.trim();
+    body.dependents        = Number(document.getElementById('e_dependents').value) || 0;
+  }
+  try {
+    const res  = await fetch('/api/update-contract', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    Object.assign(currentContract, body);
+    closeEditModal();
+    document.getElementById('detailTitle').textContent = `عقد رقم ${currentContract.contractNumber}`;
+    document.getElementById('contractPreview').innerHTML = buildContractHTML(currentContract);
+    await loadContracts();
+    currentContract = contracts.find(c => c.id === currentContract.id) || currentContract;
+    showToast('✓ تم حفظ التعديلات');
+  } catch (err) {
+    btn.textContent = '💾 حفظ التعديلات';
+    btn.disabled = false;
+    alert('خطأ: ' + err.message);
+  }
+}
+
+// ── Contract HTML ──
+function buildContractHTML(c) {
+  const isSigned = c.status === 'Signed';
+  return `<div class="contract-pdf-wrap">
+    <div class="pdf-header">
+      <div class="pdf-logo-area">
+        <div class="pdf-logo-icon">🏙️</div>
+        <div><div class="pdf-co-name">مجمع القرطبة السكني</div><div class="pdf-co-sub">Qurtubah Residential Complex</div></div>
+      </div>
+      <div>
+        <div class="pdf-doc-name">عقد إيجار</div>
+        <div class="pdf-doc-num">رقم: ${c.contractNumber||'-'}</div>
+        <div style="margin-top:4px">
+          <span class="badge ${isSigned?'badge-signed':'badge-pending'}"
+                style="display:inline-block;background:${isSigned?'#d1fae5':'#fef3c7'};color:${isSigned?'#065f46':'#92400e'}">
+            ${isSigned?'موقّع':'بانتظار التوقيع'}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="pdf-body">
+      <div class="pdf-section">
+        <div class="pdf-section-title">تفاصيل الوحدة والإيجار</div>
+        <div class="pdf-grid">
+          <div class="pdf-field"><div class="pdf-field-label">نوع الوحدة</div><div class="pdf-field-value">${c.unitType||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">نوع الإيجار</div><div class="pdf-field-value">${c.rentType||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">الإيجار الشهري</div><div class="pdf-field-value">${Number(c.monthlyRate||0).toLocaleString('ar-SA')} ريال</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">مبلغ التأمين</div><div class="pdf-field-value">${Number(c.securityDeposit||0).toLocaleString('ar-SA')} ريال</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">تاريخ البداية</div><div class="pdf-field-value">${c.fromDate||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">تاريخ الانتهاء</div><div class="pdf-field-value">${c.toDate||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">المبلغ الإجمالي</div>
+            <div class="pdf-field-value" style="font-size:16px;font-weight:700;color:#0a1628">${Number(c.totalAmount||0).toLocaleString('ar-SA')} ريال</div>
+          </div>
+        </div>
+        ${c.notes ? `<div class="pdf-notes">📌 ${c.notes}</div>` : ''}
+      </div>
+      ${isSigned ? `
+      <div class="pdf-section">
+        <div class="pdf-section-title">بيانات المستأجر</div>
+        <div class="pdf-grid">
+          <div class="pdf-field"><div class="pdf-field-label">الاسم الكامل</div><div class="pdf-field-value">${c.tenantName||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">رقم الجوال</div><div class="pdf-field-value">${c.tenantPhone||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">الجنسية</div><div class="pdf-field-value">${c.tenantNationality||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">رقم الهوية / الإقامة</div><div class="pdf-field-value">${c.tenantId||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">البريد الإلكتروني</div><div class="pdf-field-value">${c.tenantEmail||'-'}</div></div>
+          <div class="pdf-field"><div class="pdf-field-label">عدد التابعين</div><div class="pdf-field-value">${c.dependents??0} أفراد</div></div>
+        </div>
+      </div>` : `
+      <div class="pdf-section">
+        <div class="pdf-section-title">بيانات المستأجر</div>
+        <div style="padding:20px;text-align:center;color:var(--muted);background:var(--gray);border-radius:8px">⏳ في انتظار توقيع المستأجر</div>
+      </div>`}
+      <div class="pdf-sig-section">
+        <div class="pdf-sig-box"><div class="pdf-sig-label">توقيع المؤجر — مجمع القرطبة</div><div class="pdf-sig-name">إدارة المجمع</div></div>
+        <div class="pdf-sig-box">
+          <div class="pdf-sig-label">توقيع المستأجر</div>
+          ${isSigned && c.signature
+            ? `<img src="${c.signature}" class="pdf-sig-img" alt="توقيع"><div class="pdf-sig-name">${c.tenantName||''}</div><div class="pdf-sig-date">تاريخ التوقيع: ${c.signedAt ? new Date(c.signedAt).toLocaleDateString('ar-SA') : '-'}</div>`
+            : `<div style="color:var(--muted);font-size:13px;margin-top:12px">لم يتم التوقيع بعد</div>`}
+        </div>
+      </div>
+    </div>
+    <div class="pdf-footer">مجمع القرطبة السكني • جدة، المملكة العربية السعودية • ${c.createdAt ? new Date(c.createdAt).toLocaleDateString('ar-SA') : ''}</div>
+  </div>`;
+}
+
+// ── Init ──
+window.addEventListener('load', () => {
+  // Build date pickers
+  buildDatePicker('dp_f_from', () => {
+    if (activeDur['c']) {
+      const from = getDatePicker('dp_f_from');
+      if (from) { setDatePicker('dp_f_to', addDuration(from, activeDur['c'])); }
+    }
+    calcCreateTotal();
+  });
+  buildDatePicker('dp_f_to', () => calcCreateTotal());
+  buildDatePicker('dp_e_from', () => {
+    if (activeDur['e']) {
+      const from = getDatePicker('dp_e_from');
+      if (from) { setDatePicker('dp_e_to', addDuration(from, activeDur['e'])); }
+    }
+    calcEditTotal();
+  });
+  buildDatePicker('dp_e_to', () => calcEditTotal());
+
+  if (sessionStorage.getItem('auth') === ADMIN_PASSWORD) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadContracts();
+  }
+});
+</script>
+</body>
+</html>

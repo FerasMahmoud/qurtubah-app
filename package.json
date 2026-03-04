@@ -1,0 +1,17 @@
+{
+  "name": "qurtubah-app",
+  "version": "1.0.0",
+  "description": "Qurtubah Contract Management App",
+  "scripts": {
+    "setup": "node scripts/setup-airtable.js",
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "airtable": "^0.12.2",
+    "dotenv": "^17.3.1",
+    "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
